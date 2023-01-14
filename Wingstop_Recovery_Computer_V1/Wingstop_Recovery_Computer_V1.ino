@@ -235,10 +235,10 @@ while(!detect_apogee()){
 
   reopen_file();//saves and reopens file
 
-// ***********************FIRE 1 (DROGE CHUTE)************************************
+// ***********************FIRE 1 (DROGUE CHUTE)************************************
 
   t_droge = t2; //saves droge fire time
-  myFile.print(F("FIRE DROGE")); //logs event
+  myFile.print(F("FIRE DROGUE")); //logs event
   digitalWrite(FIRE_PIN_1, HIGH); //turns on droge releay (IGN 1)
   
   while(t2 < t_droge + 1000){// logs data for one second
@@ -493,15 +493,13 @@ int detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other 
 int detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
   if (x1 - landing < 1 && x1 - landing > -1){ //enters if velocity is almost 0
     c++;    //increments counter
-  }
-  else{
+  } else {
     c = 0;  //resets counter
   }
   if(c > 5){  //enters if counted 5 velocities in a row close to 0
     c = 0;    //resets counter
     return 1; //returns 1 if touchdown detected
-  }
-  else{
+  } else {
     return 0;  //returns 0 if touchdown not detected
   }
 }
