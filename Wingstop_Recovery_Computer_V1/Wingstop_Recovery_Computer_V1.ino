@@ -50,11 +50,9 @@ READ ME
  
 //LIBRARIES
 
-#include <Wire.h>
-#include "Adafruit_BMP3XX.h"
-//#include <Adafruit_MPU6050.h>
-
-#include <SD.h>
+#include <Wire.h> //version 1.0
+#include "Adafruit_BMP3XX.h" //version 2.1.0
+#include <SD.h> //version 1.2.4
 
 
 
@@ -62,7 +60,7 @@ READ ME
 
   int c = 0; //COUNTER
   float x1 = 0, x2 = 0, landing = 0, apo = 0, apo_act = 0, init_pressure = 0, init_altitude = 0, delta_t = 0; //DATA VARIABLES (decimal)
-  unsigned long t1 = 0, t2 = 0, t_droge = 0, t_main = 0; //TIMER VARIABLES (integers)
+  unsigned long t1 = 0, t2 = 0, t_drogue = 0, t_main = 0; //TIMER VARIABLES (integers)
 
   
   //DEFINE PIN NUMBERS
@@ -237,11 +235,11 @@ while(!detect_apogee()){
 
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
-  t_droge = t2; //saves droge fire time
+  t_drogue = t2; //saves drogue fire time
   myFile.print(F("FIRE DROGUE")); //logs event
-  digitalWrite(FIRE_PIN_1, HIGH); //turns on droge releay (IGN 1)
+  digitalWrite(FIRE_PIN_1, HIGH); //turns on drogue releay (IGN 1)
   
-  while(t2 < t_droge + 1000){// logs data for one second
+  while(t2 < t_drogue + 1000){// logs data for one second
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -250,7 +248,7 @@ while(!detect_apogee()){
 
 }
 
-  digitalWrite(FIRE_PIN_1, LOW); //turns off droge releay (IGN 1)
+  digitalWrite(FIRE_PIN_1, LOW); //turns off drogue releay (IGN 1)
 
 
 
@@ -274,9 +272,9 @@ while(!detect_main()){// logs data for one second
 
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
-  t_main = t2; //saves droge fire time
+  t_main = t2; //saves drogue fire time
   myFile.print(F("FIRE MAIN")); //logs event
-  digitalWrite(FIRE_PIN_2, HIGH); //turns on droge releay (IGN 1)
+  digitalWrite(FIRE_PIN_2, HIGH); //turns on drogue releay (IGN 1)
   
   while(t2 < t_main + 1000){// logs data for one second
   
@@ -287,7 +285,7 @@ while(!detect_main()){// logs data for one second
 
 }
 
-  digitalWrite(FIRE_PIN_2, LOW); //turns off droge releay (IGN 1)
+  digitalWrite(FIRE_PIN_2, LOW); //turns off drogue releay (IGN 1)
 
 
 
