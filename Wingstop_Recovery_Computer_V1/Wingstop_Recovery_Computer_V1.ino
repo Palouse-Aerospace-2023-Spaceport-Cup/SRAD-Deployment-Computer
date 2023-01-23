@@ -68,8 +68,8 @@ READ ME
   #define LED_PIN  5
 
   //FIRE PINS
-  #define FIRE_PIN_1  2
-  #define FIRE_PIN_2  3
+  #define DROGUE_FIRE_PIN  2
+  #define MAIN_FIRE_PIN  3
 
 
 // *********SET SEA LEVEL PRESSURE HERE***************
@@ -105,10 +105,10 @@ void setup() {
   while (!Serial);
 
   //Fire pin setup
-  pinMode(FIRE_PIN_1, OUTPUT);
-  digitalWrite(FIRE_PIN_1, LOW);
-  pinMode(FIRE_PIN_2, OUTPUT);
-  digitalWrite(FIRE_PIN_2, LOW);
+  pinMode(DROGUE_FIRE_PIN, OUTPUT);
+  digitalWrite(DROGUE_FIRE_PIN, LOW);
+  pinMode(MAIN_FIRE_PIN, OUTPUT);
+  digitalWrite(MAIN_FIRE_PIN, LOW);
 
   //Light setup
   pinMode(LED_PIN, OUTPUT);
@@ -237,7 +237,7 @@ while(!detect_apogee()){
 
   t_drogue = t2; //saves drogue fire time
   myFile.print(F("FIRE DROGUE")); //logs event
-  digitalWrite(FIRE_PIN_1, HIGH); //turns on drogue releay (IGN 1)
+  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
   
   while(t2 < t_drogue + 1000){// logs data for one second
   
@@ -248,7 +248,7 @@ while(!detect_apogee()){
 
 }
 
-  digitalWrite(FIRE_PIN_1, LOW); //turns off drogue releay (IGN 1)
+  digitalWrite(DROGUE_FIRE_PIN, LOW); //turns off drogue releay (IGN 1)
 
 
 
@@ -274,7 +274,7 @@ while(!detect_main()){// logs data for one second
 
   t_main = t2; //saves drogue fire time
   myFile.print(F("FIRE MAIN")); //logs event
-  digitalWrite(FIRE_PIN_2, HIGH); //turns on drogue releay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
   
   while(t2 < t_main + 1000){// logs data for one second
   
@@ -285,7 +285,7 @@ while(!detect_main()){// logs data for one second
 
 }
 
-  digitalWrite(FIRE_PIN_2, LOW); //turns off drogue releay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off drogue releay (IGN 1)
 
 
 
@@ -507,15 +507,15 @@ int detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
 //***********FIRE PIN FUNCTIONS***********
 
 void fire_1(){  //Fires ignition 1 for 1 second
-  digitalWrite(FIRE_PIN_1, HIGH); 
+  digitalWrite(DROGUE_FIRE_PIN, HIGH); 
   delay(2000);
-  digitalWrite(FIRE_PIN_1, LOW);
-  //digitalWrite(FIRE_PIN_1, LOW);
+  digitalWrite(DROGUE_FIRE_PIN, LOW);
+  //digitalWrite(DROGUE_FIRE_PIN, LOW);
 }
 
 void fire_2(){  //Fires ignition 1 for 1 second
-  digitalWrite(FIRE_PIN_2, HIGH);
+  digitalWrite(MAIN_FIRE_PIN, HIGH);
   delay(2000);
-  digitalWrite(FIRE_PIN_2, LOW);
-  //digitalWrite(FIRE_PIN_2, LOW);
+  digitalWrite(MAIN_FIRE_PIN, LOW);
+  //digitalWrite(, LOW);
 }
