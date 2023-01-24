@@ -57,18 +57,23 @@ READ ME
   int counter_apogee = 0; //counter for apogee detection buffer
   int counter_landed = 0; //counter for landing detection buffer
 
-  float x_current = 0; //current vertical position 
-  float x_previous = 0; //previous vertical position
-  float apogee = 0; //apogee altitude
+  float x_current = 0; //current vertical position above ground in meters
+  float x_previous = 0; //previous vertical position above ground in meters
+  float apogee = 0; //vertical apogee position in meters above ground
   float init_pressure = 0; //initial pressure value
-  float init_altitude = 0; //initial altitude value
-  float delta_t = 0; //time between iterations
+  float init_altitude = 0; //initial altitude value in meters
+  float delta_t = 0; //time between iterations in milliseconds
   
-  unsigned long t_previous = 0; //previous clock time 
-  unsigned long t_current = 0; //current clock time
+  unsigned long t_previous = 0; //previous clock time in milliseconds
+  unsigned long t_current = 0; //current clock time in milliseconds
   unsigned long t_drogue = 0; //time the drogue deploys
   unsigned long t_main = 0; //time the main deploys
-  
+
+  //variables to be defined from config.txt file from SD card:
+  float SEALEVELPRESSURE_HPA = 1016.00; //sea level pressure reading in HPA
+  int hz = 10; //frequncy that the altitude reading refreshes
+  int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
+  int MAIN_CHUTE_ALTITUDE = 150; //altitude above the ground in meters that the main chute will deploy
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -78,27 +83,14 @@ READ ME
   #define DROGUE_FIRE_PIN  2
   #define MAIN_FIRE_PIN  3
 
+  // barometer attachment
+  Adafruit_BMP3XX bmp;
 
-// *********SET SEA LEVEL PRESSURE HERE***************
-  #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
+  // File for config
+  File configFile;
   
-// *********SET FREQUENCY HERE IN HZ***************
-  #define hz (10)//hz
-
-// *********SET TAKEOFF ALTITUDE HERE IN METERS***************
-  #define TAKEOFF_ALTITUDE 30
-
-// *********SET MAIN CHUTE ALTITUDE HERE IN METERS***************
-  #define MAIN_CHUTE_ALTITUDE 150
-  
-
-
-
-// barometer attachment
-Adafruit_BMP3XX bmp;
-
-// File for logging
-File logFile;
+  // File for logging
+  File logFile;
 
 
 
@@ -140,7 +132,30 @@ void setup() {
   }
 
 
-  //FILE Setup***************************************************
+  //Read config.txt File***************************************************
+  
+
+  SEALEVELPRESSURE_HPA = SD_findFloat(F("SEALEVELPRESSURE_HPA")); //sea level pressure reading in HPA
+  hz = SD_findInt(F("hz")); //frequncy that the altitude reading refreshes
+  TAKEOFF_ALTITUDE = SD_findInt(F("TAKEOFF_ALTITUDE")); //altitude above the ground in meters that triggers the detect_take_off function
+  MAIN_CHUTE_ALTITUDE = SD_findInt(F("MAIN_CHUTE_ALTITUDE")); //altitude above the ground in meters that the main chute will deploy
+
+
+  //Read back configured values
+  Serial.print(F("SEALEVELPRESSURE_HPA = "));
+  Serial.println(SEALEVELPRESSURE_HPA);
+
+  Serial.print(F("hz = "));
+  Serial.println(hz);
+
+  Serial.print(F("TAKEOFF_ALTITUDE = "));
+  Serial.println(TAKEOFF_ALTITUDE);
+
+  Serial.print(F("MAIN_CHUTE_ALTITUDE = "));
+  Serial.println(MAIN_CHUTE_ALTITUDE);
+
+
+  //Logging File Setup***************************************************
 
   open_file(); //File for writing
   if (logFile) {
@@ -426,6 +441,109 @@ void log_data(){//saves current data to sd card
   logFile.print(t_current); logFile.print(F("\t"));       //logs current time
   logFile.print(x_current); logFile.print(F("\t"));       //logs current position
   }
+}
+
+int SD_findInt(const __FlashStringHelper * key) {
+  char value_string[30];
+  int value_length = SD_findKey(key, value_string);
+  return HELPER_ascii2Int(value_string, value_length);
+}
+
+float SD_findFloat(const __FlashStringHelper * key) {
+  char value_string[30];
+  int value_length = SD_findKey(key, value_string);
+  return HELPER_ascii2Float(value_string, value_length);
+}
+
+int SD_findKey(const __FlashStringHelper * key, char * value) {
+  configFile = SD.open("config.txt", FILE_WRITE);
+
+  if (!configFile) {
+    // if the file didn't open, turn on buzzer/LED to indicate file problem
+    turn_on_led(); //Turn on LED
+    turn_on_buzzer(); //Turn on buzzer
+    while(1){ //run while loop forever
+    }
+  }
+
+  char key_string[30];
+  char SD_buffer[30 + 30 + 1]; // 1 is = character
+  int key_length = 0;
+  int value_length = 0;
+
+  // Flash string to string
+  PGM_P keyPoiter;
+  keyPoiter = reinterpret_cast<PGM_P>(key);
+  byte ch;
+  do {
+    ch = pgm_read_byte(keyPoiter++);
+    if (ch != 0)
+      key_string[key_length++] = ch;
+  } while (ch != 0);
+
+  // check line by line
+  while (configFile.available()) {
+    int buffer_length = configFile.readBytesUntil('\n', SD_buffer, 100);
+    if (SD_buffer[buffer_length - 1] == '\r')
+      buffer_length--; // trim the \r
+
+    if (buffer_length > (key_length + 1)) { // 1 is = character
+      if (memcmp(SD_buffer, key_string, key_length) == 0) { // equal
+        if (SD_buffer[key_length] == '=') {
+          value_length = buffer_length - key_length - 1;
+          memcpy(value, SD_buffer + key_length + 1, value_length);
+          break;
+        }
+      }
+    }
+  }
+
+  configFile.close();  // close the file
+  return value_length;
+}
+
+int HELPER_ascii2Int(char *ascii, int length) {
+  int sign = 1;
+  int number = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-')
+      sign = -1;
+    else {
+      if (c >= '0' && c <= '9')
+        number = number * 10 + (c - '0');
+    }
+  }
+
+  return number * sign;
+}
+
+float HELPER_ascii2Float(char *ascii, int length) {
+  int sign = 1;
+  int decimalPlace = 0;
+  float number  = 0;
+  float decimal = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-')
+      sign = -1;
+    else {
+      if (c == '.')
+        decimalPlace = 1;
+      else if (c >= '0' && c <= '9') {
+        if (!decimalPlace)
+          number = number * 10 + (c - '0');
+        else {
+          decimal += ((float)(c - '0') / pow(10.0, decimalPlace));
+          decimalPlace++;
+        }
+      }
+    }
+  }
+
+  return (number + decimal) * sign;
 }
 
 
