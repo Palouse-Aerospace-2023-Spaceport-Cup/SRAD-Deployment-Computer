@@ -3,15 +3,22 @@ Backup recovery flight computer for Spaceport America rocket. Will fire redundan
 
   
 ................................................................................................................................................
+
 READ ME
+
 ................................................................................................................................................
 
-  INFO:
-  Author: Zachary Ervin
-  Date: 3/20/22
-  Hardware: 'Boneless: Hot Buffalo' flight computer, created by Zachary Ervin
-
-  DESCRIPTION:
+  * INFO: 
+  
+  Author: Zachary Ervin 
+  
+  Date: 3/20/22 
+  
+  Hardware: 'Boneless: Hot Buffalo' flight computer, created by Zachary Ervin 
+  
+.
+  * DESCRIPTION:
+  
   This program is a recovery flight computer for high powered rockets. It is designed to deploy two black-powder charges, 
   one for a drogue parachute and another for the main recovery parachute. The first charge, the drogue charge, will fire
   at apogee or a specified delay after apogee. The second charge, the main charge, will fire at the configured altitude 
@@ -20,8 +27,9 @@ READ ME
   armed state the circuits can be completed. Once armed, the computer will wait until the rocket has risen above the 
   ground a certain configured distance to advance the flight program. 
 
-
-  SETUP:
+ 
+ .
+  * SETUP:
 
   adjustable parameters:
   
@@ -44,30 +52,42 @@ READ ME
   The configure file should contain a line for each parameter, organized as "<parameterName>=<value>".
 
   example config.txt content:
+  
   "
+  
   SEALEVELPRESSURE_HPA=1016.0
+  
   hz=10
+  
   TAKEOFF_ALTITUDE=30
-  MAIN_CHUTE_ALTITUDE=150;
+  
+  MAIN_CHUTE_ALTITUDE=150
+  
   DROGUE_DELAY=0
+  
   "
   
-
-  MODE INDICATORS:
+  
+.
+  * MODE INDICATORS:
 
   
-  ARMED AND READY TO LAUNCH
-  -Beeps 3 times
+  ARMED AND READY TO LAUNCH:    Beeps 3 times
 
-  RECOVERY MODE
-  -Slow long beeps
+  RECOVERY MODE:                Slow long beeps
   
 
+  .
+  * TROUBLESHOOTING:
   
-  TROUBLESHOOTING:
-  -SD Card error:       LED blinks and Buzzer beeps fast 
-  -FILE error:          LED and Buzzer stay on
-  -Accelerometer error: LED stays on, NO BUZZER
-  -Barometer error:     Buzzer stays on, NO LED
+  
+  SD Card error:       LED blinks and Buzzer beeps fast 
+  
+  FILE error:          LED and Buzzer stay on
+  
+  Accelerometer error: LED stays on, NO BUZZER
+  
+  Barometer error:     Buzzer stays on, NO LED
+  
 
 ................................................................................................................................................
