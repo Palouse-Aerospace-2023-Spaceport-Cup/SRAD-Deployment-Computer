@@ -1,34 +1,65 @@
 
 /***************************************************************************
-  This program is for Bone-In: Honey BBQ flight computer, Created by Zachary Ervin
-
-
+  
 ................................................................................................................................................
 READ ME
 ................................................................................................................................................
 
+  INFO:
+  Author: Zachary Ervin
+  Date: 3/20/22
+  Hardware: 'Boneless: Hot Buffalo' flight computer, created by Zachary Ervin
+
+  DESCRIPTION:
+  This program is a recovery flight computer for high powered rockets. It is designed to deploy two black-powder charges, 
+  one for a drogue parachute and another for the main recovery parachute. The first charge, the drogue charge, will fire
+  at apogee or a specified delay after apogee. The second charge, the main charge, will fire at the configured altitude 
+  above the ground no less than one second after the drogue charge has fired. The flight computer should be powered on
+  before the circuit is completed to the E-matches used to ignite the powder charges. Once the computer has reached the 
+  armed state the circuits can be completed. Once armed, the computer will wait until the rocket has risen above the 
+  ground a certain configured distance to advance the flight program. 
+
+
   SETUP:
+
+  adjustable parameters:
   
-  Set Current Location and Time Sea Level Pressure:
-    Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
-    Save under variables, Defined Constant "SEALEVELPRESSURE_HPA"  
+  SEALEVELPRESSURE_HPA  - current location and time sea level pressure in HPA. 
+                          Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
+  
+  hz - frequncy that the altitude reading refreshes. 10 is a good default. 
+  
+  TAKEOFF_ALTITUDE - altitude above the ground in meters that initiates the flight sequence. 30 is a good default. 
+  
+  MAIN_CHUTE_ALTITUDE - altitude above the ground in meters that the main chute will deploy after apogee is reached. 
+  
+  DROGUE_DELAY -  drogue delay time after apogee in milliseconds. Use 0 if this is the main flight recovery computer. 
+                  Use a delay of this is the backup flight computer. 
 
-  Takeoff altitude setup:
-    under variables, adjust take off altitude in meters. Reaching this altitude initiates the flight program.
-    
-  Main chute altitude deployment setup:
-    under variables, adjust main chute deployment altitude in meters. Falling below this altitude deploys the main chute.
 
+  Configure the adjustable parameters through a configuration file on the attached SD card wiith the file name "config.txt". 
+  This file must present to operate the flight computer.
 
+  The configure file should contain a line for each parameter, organized as "<parameterName>=<value>".
+
+  example config.txt content:
+  "
+  SEALEVELPRESSURE_HPA=1016.0
+  hz=10
+  TAKEOFF_ALTITUDE=30
+  MAIN_CHUTE_ALTITUDE=150;
+  DROGUE_DELAY=0
+  "
+  
 
   MODE INDICATORS:
 
   
   ARMED AND READY TO LAUNCH
-  -BEEPS 3 TIMES
+  -Beeps 3 times
 
   RECOVERY MODE
-  -Slow long Beeps
+  -Slow long beeps
   
 
   
@@ -74,6 +105,7 @@ READ ME
   int hz = 10; //frequncy that the altitude reading refreshes
   int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
   int MAIN_CHUTE_ALTITUDE = 150; //altitude above the ground in meters that the main chute will deploy
+  int DROGUE_DELAY = 0; //drogue delay time after apogee in milliseconds
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -139,6 +171,7 @@ void setup() {
   hz = SD_findInt(F("hz")); //frequncy that the altitude reading refreshes
   TAKEOFF_ALTITUDE = SD_findInt(F("TAKEOFF_ALTITUDE")); //altitude above the ground in meters that triggers the detect_take_off function
   MAIN_CHUTE_ALTITUDE = SD_findInt(F("MAIN_CHUTE_ALTITUDE")); //altitude above the ground in meters that the main chute will deploy
+  DROGUE_DELAY = SD_findInt(F("DROGUE_DELAY")); //drogue delay time after apogee in milliseconds
 
 
   //Read back configured values
@@ -153,6 +186,9 @@ void setup() {
 
   Serial.print(F("MAIN_CHUTE_ALTITUDE = "));
   Serial.println(MAIN_CHUTE_ALTITUDE);
+
+  Serial.print(F("DROGUE_DELAY = "));
+  Serial.println(DROGUE_DELAY);
 
 
   //Logging File Setup***************************************************
@@ -241,22 +277,34 @@ while(!detect_apogee()){
 
   reopen_file();//saves and reopens file
 
+  
+
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
   t_drogue = t_current; //saves drogue fire time
   if (logFile) {
+  logFile.print(F("APOGEE DETECTED")); //logs event
+  }
+
+  while(t_current - t_drogue < DROGUE_DELAY){//logs date during drogue delay
+    //update altitude at frequency (hz)
+    iterate_altitude();
+    log_data();//logs data to sd card
+
+  }
+
+  if (logFile) {
   logFile.print(F("FIRE DROGUE")); //logs event
   }
+  
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
   while(t_current < t_drogue + 1000){// logs data for one second while pin remains high
-  
-  //update altitude at frequency (hz)
-  iterate_altitude();
-  
-  log_data();//logs data to sd card
+    //update altitude at frequency (hz)
+    iterate_altitude();
+    log_data();//logs data to sd card
 
-}
+  }
 
   digitalWrite(DROGUE_FIRE_PIN, LOW); //turns off drogue relay (IGN 1)
 
@@ -286,7 +334,8 @@ while(!detect_main()){// logs data for one second
   if (logFile) {
   logFile.print(F("FIRE MAIN")); //logs event
   }
-  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
+  
+  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on main relay (IGN 2)
   
   while(t_current < t_main + 1000){// logs data for one second while pin remains high
   
@@ -297,7 +346,7 @@ while(!detect_main()){// logs data for one second
 
 }
 
-  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off drogue relay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off main relay (IGN 2)
 
 
 
