@@ -11,10 +11,7 @@ READ ME
   
   Set Current Location and Time Sea Level Pressure:
     Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
-    Save under variables, Defined Constant "SEALEVELPRESSURE_HPA" 
-  
-  Sea Level vs ground reference setup:
-    under barometer setup code, uncomment section 1 and comment section 2 for ground reference data. Uncomment section 2 and comment section 1 for ground reference data. 
+    Save under variables, Defined Constant "SEALEVELPRESSURE_HPA"  
 
   Takeoff altitude setup:
     under variables, adjust take off altitude in meters. Reaching this altitude initiates the flight program.
@@ -125,7 +122,6 @@ void setup() {
 
   //BUZZER setup:
   pinMode(BUZZER_PIN, OUTPUT);
-  //beep_buzz(1);//beep and buzz 
   
 
   
@@ -166,44 +162,23 @@ void setup() {
 
 
 
-for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude to zero
+for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude to zero
   read_barometer();//updates barometer data
   delay(50);
-
-  //calibrate readings for altitude measurements. CHOOSE SEALEVEL OR GROUND REFERENCE ALTITUDE READINGS. One section must be commented.
-
-  ///* SECTION 1
-  // COMMENT this section to use all sea level data, not ground reference data. Must uncomment second section. 
   init_pressure = bmp.pressure/100;
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
   x_current = read_altitude();
-  //*///END SECTION 1 
 }
-  /* SECTION 2
-  // UNCOMMENT this section to use all sea level data. Target altitude will be updated using initial altitude reading and target above ground. Must comment first section. 
-  init_pressure = SEALEVELPRESSURE_HPA;
-  init_altitude = read_altitude();
-  x_current = init_altitude;
-  target_altitude += init_altitude;
-  *///END SECTION 2 
-
   
-
-
   //print initial sea level altitude to file
   logFile.print(init_altitude);
 
-  
 
   //sets initial time, t_previous
   t_previous = millis();
 
-
   
-  beep_buzz(3);//beep and buzz 
-
-
-  
+  beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
 
   //COMPUTER IS NOW ARMED
 }
@@ -406,7 +381,7 @@ float read_altitude(){//reads and returns barometer altitude reading
 void iterate_altitude(){ //reads altitude at frequency (hz)
   do{
   t_current = millis();
-  }while(t_current - t_previous < 1000/hz);//runs until reaches frequency
+  }while(t_current - t_previous < 1000/hz);//runs until reaches frequency period
 
   x_previous = x_current; //updates previous position variable for landing detection
   x_current = read_altitude(); //updates altitude
@@ -418,7 +393,6 @@ void iterate_altitude(){ //reads altitude at frequency (hz)
 
 void open_file(){// opens the file for writing
   logFile = SD.open("flight.txt", FILE_WRITE);
-
   
   if (logFile) {
     //file opened ok
@@ -426,8 +400,7 @@ void open_file(){// opens the file for writing
     // if the file didn't open, turn on buzzer/LED to indicate file problem
     turn_on_led(); //Turn on LED
     turn_on_buzzer(); //Turn on buzzer
-    while(1){ 
-      //run while loop forever
+    while(1){ //run while loop forever
     }
   }
 }
@@ -436,7 +409,7 @@ void set_header_file(){//sets headers at begining of file
   logFile.print(F("Flight Log:\t"));
   logFile.print(hz);
   logFile.println(F("hz"));
-  logFile.print(F("Time:\tAlt:\tApo:\tEvents:\t"));
+  logFile.print(F("Time:\tAlt:\tEvents:\tInital Altitude:\t"));
 }
 
 void close_file(){
@@ -518,12 +491,10 @@ void fire_1(){  //Fires ignition 1 for 1 second
   digitalWrite(DROGUE_FIRE_PIN, HIGH); 
   delay(2000);
   digitalWrite(DROGUE_FIRE_PIN, LOW);
-  //digitalWrite(DROGUE_FIRE_PIN, LOW);
 }
 
 void fire_2(){  //Fires ignition 1 for 1 second
   digitalWrite(MAIN_FIRE_PIN, HIGH);
   delay(2000);
   digitalWrite(MAIN_FIRE_PIN, LOW);
-  //digitalWrite(, LOW);
 }
