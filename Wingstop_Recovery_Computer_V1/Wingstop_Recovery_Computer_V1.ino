@@ -58,10 +58,20 @@ READ ME
 
 //VARIABLES
 
-  int c = 0; //COUNTER
-  float x1 = 0, x2 = 0, landing = 0, apo = 0, apo_act = 0, init_pressure = 0, init_altitude = 0, delta_t = 0; //DATA VARIABLES (decimal)
-  unsigned long t1 = 0, t2 = 0, t_drogue = 0, t_main = 0; //TIMER VARIABLES (integers)
+  int counter_apogee = 0; //counter for apogee detection buffer
+  int counter_landed = 0; //counter for landing detection buffer
 
+  float x_current = 0; //current vertical position 
+  float x_previous = 0; //previous vertical position
+  float apogee = 0; //apogee altitude
+  float init_pressure = 0; //initial pressure value
+  float init_altitude = 0; //initial altitude value
+  float delta_t = 0; //time between iterations
+  
+  unsigned long t_previous = 0; //previous clock time 
+  unsigned long t_current = 0; //current clock time
+  unsigned long t_drogue = 0; //time the drogue deploys
+  unsigned long t_main = 0; //time the main deploys
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -91,7 +101,7 @@ READ ME
 Adafruit_BMP3XX bmp;
 
 // File for logging
-File myFile;
+File logFile;
 
 
 
@@ -166,14 +176,14 @@ for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude t
   // COMMENT this section to use all sea level data, not ground reference data. Must uncomment second section. 
   init_pressure = bmp.pressure/100;
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x1 = read_altitude();
+  x_current = read_altitude();
   //*///END SECTION 1 
 }
   /* SECTION 2
   // UNCOMMENT this section to use all sea level data. Target altitude will be updated using initial altitude reading and target above ground. Must comment first section. 
   init_pressure = SEALEVELPRESSURE_HPA;
   init_altitude = read_altitude();
-  x1 = init_altitude;
+  x_current = init_altitude;
   target_altitude += init_altitude;
   *///END SECTION 2 
 
@@ -181,12 +191,12 @@ for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude t
 
 
   //print initial sea level altitude to file
-  myFile.print(init_altitude);
+  logFile.print(init_altitude);
 
   
 
-  //sets initial time, t1
-  t1 = millis();
+  //sets initial time, t_previous
+  t_previous = millis();
 
 
   
@@ -235,11 +245,11 @@ while(!detect_apogee()){
 
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
-  t_drogue = t2; //saves drogue fire time
-  myFile.print(F("FIRE DROGUE")); //logs event
+  t_drogue = t_current; //saves drogue fire time
+  logFile.print(F("FIRE DROGUE")); //logs event
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
   
-  while(t2 < t_drogue + 1000){// logs data for one second
+  while(t_current < t_drogue + 1000){// logs data for one second
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -272,11 +282,11 @@ while(!detect_main()){// logs data for one second
 
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
-  t_main = t2; //saves drogue fire time
-  myFile.print(F("FIRE MAIN")); //logs event
+  t_main = t_current; //saves drogue fire time
+  logFile.print(F("FIRE MAIN")); //logs event
   digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
   
-  while(t2 < t_main + 1000){// logs data for one second
+  while(t_current < t_main + 1000){// logs data for one second
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -303,7 +313,7 @@ while(!detect_landing()){// logs data for one second
 
 }
 
-  myFile.print(F("LANDED")); //logs event
+  logFile.print(F("LANDED")); //logs event
   
   close_file();
 
@@ -395,22 +405,22 @@ float read_altitude(){//reads and returns barometer altitude reading
 
 void iterate_altitude(){ //reads altitude at frequency (hz)
   do{
-  t2 = millis();
-  }while(t2 - t1 < 1000/hz);//runs until reaches frequency
+  t_current = millis();
+  }while(t_current - t_previous < 1000/hz);//runs until reaches frequency
 
-  landing = x1; //updates landing variable for detection
-  x1 = read_altitude(); //updates altitude
-  t1 = t2;  //updates new time
+  x_previous = x_current; //updates previous position variable for landing detection
+  x_current = read_altitude(); //updates altitude
+  t_previous = t_current;  //updates new time
 }
 
 
 //***********FILE FUNCTIONS***********
 
 void open_file(){// opens the file for writing
-  myFile = SD.open("flight.txt", FILE_WRITE);
+  logFile = SD.open("flight.txt", FILE_WRITE);
 
   
-  if (myFile) {
+  if (logFile) {
     //file opened ok
   } else {
     // if the file didn't open, turn on buzzer/LED to indicate file problem
@@ -423,14 +433,14 @@ void open_file(){// opens the file for writing
 }
 
 void set_header_file(){//sets headers at begining of file
-  myFile.print(F("Flight Log:\t"));
-  myFile.print(hz);
-  myFile.println(F("hz"));
-  myFile.print(F("Time:\tAlt:\tApo:\tEvents:\t"));
+  logFile.print(F("Flight Log:\t"));
+  logFile.print(hz);
+  logFile.println(F("hz"));
+  logFile.print(F("Time:\tAlt:\tApo:\tEvents:\t"));
 }
 
 void close_file(){
-  myFile.close(); //closes file
+  logFile.close(); //closes file
 }
 
 void reopen_file(){//closes then reopens the file, saving data up to this point
@@ -439,9 +449,9 @@ void reopen_file(){//closes then reopens the file, saving data up to this point
 }
 
 void log_data(){//saves current data to sd card
-  myFile.print("\n");
-  myFile.print(t2); myFile.print(F("\t"));       //logs current time
-  myFile.print(x1); myFile.print(F("\t"));       //logs current position
+  logFile.print("\n");
+  logFile.print(t_current); logFile.print(F("\t"));       //logs current time
+  logFile.print(x_current); logFile.print(F("\t"));       //logs current position
   
 }
 
@@ -453,7 +463,7 @@ void log_data(){//saves current data to sd card
 
 
 int detect_take_off(){//returns 1 if take off is detected, otherwise 0
-  if(x1 >= TAKEOFF_ALTITUDE){
+  if(x_current >= TAKEOFF_ALTITUDE){
     return 1;
   }
   else{
@@ -462,15 +472,14 @@ int detect_take_off(){//returns 1 if take off is detected, otherwise 0
 }
 
 int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if(x1 > apo_act){//enters if current position is higher than saved apogee value
-    apo_act = x1; //saves new apogee value
-    c = 0;      //resets apogee counter
+  if(x_current > apogee){//enters if current position is higher than saved apogee value
+    apogee = x_current; //saves new apogee value
+    counter_apogee = 0;      //resets apogee counter
   }
   else{
-    c++;        //increments apogee counter if latest value is less than recorded apogee
+    counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  if(c > 3){    //enters if last 4 positions are lower than recorded apogee
-    c = 0;      //resets counter for landing
+  if(counter_apogee > 3){    //enters if last 4 positions are lower than recorded apogee
     return 1;   //returns 1 for apogee detected
   }
   else{           
@@ -480,7 +489,7 @@ int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
 
 
 int detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other wise
-  if(x1 <= MAIN_CHUTE_ALTITUDE){
+  if(x_current <= MAIN_CHUTE_ALTITUDE){
     return 1;
   }
   else{
@@ -489,13 +498,12 @@ int detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other 
 }
 
 int detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
-  if (x1 - landing < 1 && x1 - landing > -1){ //enters if velocity is almost 0
-    c++;    //increments counter
+  if (x_current - x_previous < 1 && x_current - x_previous > -1){ //enters if velocity is almost 0
+    counter_landed++;    //increments counter
   } else {
-    c = 0;  //resets counter
+    counter_landed = 0;  //resets counter
   }
-  if(c > 5){  //enters if counted 5 velocities in a row close to 0
-    c = 0;    //resets counter
+  if(counter_landed > 5){  //enters if counted 5 velocities in a row close to 0
     return 1; //returns 1 if touchdown detected
   } else {
     return 0;  //returns 0 if touchdown not detected
