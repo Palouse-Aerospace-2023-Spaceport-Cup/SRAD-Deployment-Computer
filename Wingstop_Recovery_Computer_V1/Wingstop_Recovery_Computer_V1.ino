@@ -68,8 +68,7 @@ READ ME
   unsigned long t_current = 0; //current clock time
   unsigned long t_drogue = 0; //time the drogue deploys
   unsigned long t_main = 0; //time the main deploys
-
-  bool file_is_open = false; //file state variable
+  
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -144,7 +143,8 @@ void setup() {
   //FILE Setup***************************************************
 
   open_file(); //File for writing
-  if (!file_is_open) {
+  if (logFile) {
+    } else {
     // if the file didn't open, turn on buzzer/LED to indicate file problem
     turn_on_led(); //Turn on LED
     turn_on_buzzer(); //Turn on buzzer
@@ -229,7 +229,7 @@ while(!detect_apogee()){
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
   t_drogue = t_current; //saves drogue fire time
-  if (file_is_open) {
+  if (logFile) {
   logFile.print(F("FIRE DROGUE")); //logs event
   }
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
@@ -268,7 +268,7 @@ while(!detect_main()){// logs data for one second
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
   t_main = t_current; //saves main chute fire time
-  if (file_is_open) {
+  if (logFile) {
   logFile.print(F("FIRE MAIN")); //logs event
   }
   digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
@@ -299,7 +299,7 @@ while(!detect_landing()){// logs data for one second
   log_data();//logs data to sd card
 
 }
-  if (file_is_open) {
+  if (logFile) {
   logFile.print(F("LANDED")); //logs event
   close_file();
   }
@@ -400,12 +400,6 @@ void iterate_altitude(){ //reads altitude at frequency (hz)
 
 void open_file(){// opens the file for writing
   logFile = SD.open("flight.txt", FILE_WRITE);
-  
-  if (logFile) {
-    file_is_open = true;//file opened ok
-  } else {
-    file_is_open = false;//file did not open
-  }
 }
 
 void set_header_file(){//sets headers at begining of file
@@ -420,14 +414,14 @@ void close_file(){
 }
 
 void reopen_file(){//closes then reopens the file, saving data up to this point
-  if (file_is_open){
+  if (logFile){
   close_file();//closes the file
   }
   open_file();//opens the file
 }
 
 void log_data(){//saves current data to sd card
-  if (file_is_open) {
+  if (logFile) {
   logFile.print("\n");
   logFile.print(t_current); logFile.print(F("\t"));       //logs current time
   logFile.print(x_current); logFile.print(F("\t"));       //logs current position
