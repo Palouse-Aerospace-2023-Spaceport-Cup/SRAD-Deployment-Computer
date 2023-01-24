@@ -224,7 +224,7 @@ while(!detect_apogee()){
   logFile.print(F("FIRE DROGUE")); //logs event
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
-  while(t_current < t_drogue + 1000){// logs data for one second
+  while(t_current < t_drogue + 1000){// logs data for one second while pin remains high
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -241,7 +241,7 @@ while(!detect_apogee()){
 
 // ***********************DESCENDING MODE 1************************************
 
-while(!detect_main()){// logs data for one second
+while(!detect_main()){// logs data for one second 
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -261,7 +261,7 @@ while(!detect_main()){// logs data for one second
   logFile.print(F("FIRE MAIN")); //logs event
   digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
-  while(t_current < t_main + 1000){// logs data for one second
+  while(t_current < t_main + 1000){// logs data for one second while pin remains high
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -475,20 +475,4 @@ bool detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
   } else {
     return false;  //returns 0 if touchdown not detected
   }
-}
-
-
-
-//***********FIRE PIN FUNCTIONS***********
-
-void fire_1(){  //Fires ignition 1 for 1 second
-  digitalWrite(DROGUE_FIRE_PIN, HIGH); 
-  delay(2000);
-  digitalWrite(DROGUE_FIRE_PIN, LOW);
-}
-
-void fire_2(){  //Fires ignition 1 for 1 second
-  digitalWrite(MAIN_FIRE_PIN, HIGH);
-  delay(2000);
-  digitalWrite(MAIN_FIRE_PIN, LOW);
 }
