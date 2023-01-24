@@ -222,7 +222,7 @@ while(!detect_apogee()){
 
   t_drogue = t_current; //saves drogue fire time
   logFile.print(F("FIRE DROGUE")); //logs event
-  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
+  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
   while(t_current < t_drogue + 1000){// logs data for one second
   
@@ -233,7 +233,7 @@ while(!detect_apogee()){
 
 }
 
-  digitalWrite(DROGUE_FIRE_PIN, LOW); //turns off drogue releay (IGN 1)
+  digitalWrite(DROGUE_FIRE_PIN, LOW); //turns off drogue relay (IGN 1)
 
 
 
@@ -257,9 +257,9 @@ while(!detect_main()){// logs data for one second
 
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
-  t_main = t_current; //saves drogue fire time
+  t_main = t_current; //saves main chute fire time
   logFile.print(F("FIRE MAIN")); //logs event
-  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue releay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
   while(t_current < t_main + 1000){// logs data for one second
   
@@ -270,7 +270,7 @@ while(!detect_main()){// logs data for one second
 
 }
 
-  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off drogue releay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off drogue relay (IGN 1)
 
 
 
@@ -372,14 +372,12 @@ void read_barometer(){//takes barometer reading
 }
 
 float read_altitude(){//reads and returns barometer altitude reading
-  while (! bmp.performReading()) {
-    //performs until it gets a valid reading
-  }
+  read_barometer();
   return bmp.readAltitude(init_pressure); // returns current altitude reading
 }
 
 void iterate_altitude(){ //reads altitude at frequency (hz)
-  do{
+  do {
   t_current = millis();
   }while(t_current - t_previous < 1000/hz);//runs until reaches frequency period
 
@@ -436,50 +434,46 @@ void log_data(){//saves current data to sd card
 
 
 int detect_take_off(){//returns 1 if take off is detected, otherwise 0
-  if(x_current >= TAKEOFF_ALTITUDE){
+  if (x_current >= TAKEOFF_ALTITUDE){
     return 1;
-  }
-  else{
+  } else {
     return 0;
   }
 }
 
-int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if(x_current > apogee){//enters if current position is higher than saved apogee value
+bool detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
+  if (x_current > apogee){//enters if current position is higher than saved apogee value
     apogee = x_current; //saves new apogee value
     counter_apogee = 0;      //resets apogee counter
-  }
-  else{
+  } else {
     counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  if(counter_apogee > 3){    //enters if last 4 positions are lower than recorded apogee
-    return 1;   //returns 1 for apogee detected
-  }
-  else{           
-    return 0;   //returns 0 for apogee not reached
-  }
-}
-
-
-int detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other wise
-  if(x_current <= MAIN_CHUTE_ALTITUDE){
-    return 1;
-  }
-  else{
-    return 0;
+  if (counter_apogee > 3){    //enters if last 4 positions are lower than recorded apogee
+    return true;   //returns 1 for apogee detected
+  } else {           
+    return false;   //returns 0 for apogee not reached
   }
 }
 
-int detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
+
+bool detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other wise
+  if (x_current <= MAIN_CHUTE_ALTITUDE){
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
   if (x_current - x_previous < 1 && x_current - x_previous > -1){ //enters if velocity is almost 0
     counter_landed++;    //increments counter
   } else {
     counter_landed = 0;  //resets counter
   }
-  if(counter_landed > 5){  //enters if counted 5 velocities in a row close to 0
-    return 1; //returns 1 if touchdown detected
+  if (counter_landed > 5){  //enters if counted 5 velocities in a row close to 0
+    return true; //returns 1 if touchdown detected
   } else {
-    return 0;  //returns 0 if touchdown not detected
+    return false;  //returns 0 if touchdown not detected
   }
 }
 
