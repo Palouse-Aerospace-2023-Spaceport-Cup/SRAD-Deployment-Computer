@@ -93,7 +93,6 @@ READ ME
   float apogee = 0; //vertical apogee position in meters above ground
   float init_pressure = 0; //initial pressure value
   float init_altitude = 0; //initial altitude value in meters
-  float delta_t = 0; //time between iterations in milliseconds
   
   unsigned long t_previous = 0; //previous clock time in milliseconds
   unsigned long t_current = 0; //current clock time in milliseconds
@@ -445,8 +444,13 @@ void read_barometer(){//takes barometer reading
 }
 
 float read_altitude(){//reads and returns barometer altitude reading
-  read_barometer();
-  return bmp.readAltitude(init_pressure); // returns current altitude reading
+  float altitudeReading;
+  do {
+    read_barometer(); 
+    altitudeReading = bmp.readAltitude(init_pressure);
+  } while (altitudeReading - x_current > 1200*(t_current - t_previous)); 
+  //keeps reading altimiter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
+  return altitudeReading; // returns current altitude reading
 }
 
 void iterate_altitude(){ //reads altitude at frequency (hz)
