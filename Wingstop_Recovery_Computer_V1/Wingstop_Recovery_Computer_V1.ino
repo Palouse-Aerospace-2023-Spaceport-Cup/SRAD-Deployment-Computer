@@ -36,6 +36,10 @@ READ ME
   DROGUE_DELAY -  drogue delay time after apogee in milliseconds. Use 0 if this is the main flight recovery computer. 
                   Use a delay of this is the backup flight computer. 
 
+  MACH_DELAY -  delay time in milliseconds that the charges won't fire after launch is detected. Set this time to at least 
+                the expected burn time of the motor is your are planning on going mach 0.8 or greater. Otherwise set to 0 
+                for no delay (for subsonic flight).
+
 
   Configure the adjustable parameters through a configuration file on the attached SD card wiith the file name "config.txt". 
   This file must present to operate the flight computer.
@@ -105,6 +109,7 @@ READ ME
   int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
   int MAIN_CHUTE_ALTITUDE = 150; //altitude above the ground in meters that the main chute will deploy
   int DROGUE_DELAY = 0; //drogue delay time after apogee in milliseconds
+  int MACH_DELAY = 0; //delay time in milliseconds that the charges won't fire after launch is detected.
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -171,6 +176,7 @@ void setup() {
   TAKEOFF_ALTITUDE = SD_findInt(F("TAKEOFF_ALTITUDE")); //altitude above the ground in meters that triggers the detect_take_off function
   MAIN_CHUTE_ALTITUDE = SD_findInt(F("MAIN_CHUTE_ALTITUDE")); //altitude above the ground in meters that the main chute will deploy
   DROGUE_DELAY = SD_findInt(F("DROGUE_DELAY")); //drogue delay time after apogee in milliseconds
+  MACH_DELAY = SD_findInt(F("MACH_DELAY")); //delay time in milliseconds that the charges won't fire after launch is detected.
 
 
   //Read back configured values
@@ -187,7 +193,7 @@ void setup() {
   Serial.println(MAIN_CHUTE_ALTITUDE);
 
   Serial.print(F("DROGUE_DELAY = "));
-  Serial.println(DROGUE_DELAY);
+  Serial.println(DROGUE_DELAY); 
 
 
   //Logging File Setup***************************************************
@@ -261,9 +267,19 @@ while(!detect_take_off()){
 
   log_data();//logs data to sd card
 
-
+  MACH_DELAY = MACH_DELAY + t_current;
 
 // ***********************ASCENDING MODE************************************
+
+while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
+  
+  //update altitude at frequency (hz)
+  iterate_altitude();
+  
+  log_data();//logs data to sd card
+
+}
+
 
 while(!detect_apogee()){
   
