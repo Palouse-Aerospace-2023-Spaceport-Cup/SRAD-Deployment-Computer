@@ -231,8 +231,21 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   delay(50);
   init_pressure = bmp.pressure/100;
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x_current = read_altitude();
+  x_previous = read_altitude();
 }
+
+  delay(1000);
+  x_current = read_altitude();
+
+  if (abs(x_current - x_previous) > 3 ){//enters if roket is moving greater than 3 m/s
+    logFile.print(F("ABORTED, ROCKET MOVING"));
+    while (1){//runs forever
+      //update altitude at frequency (hz)
+      iterate_altitude();
+  
+      log_data();//logs data to sd card
+    }
+  }
   
   //print initial sea level altitude to file
   logFile.print(init_altitude);
@@ -240,6 +253,7 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
 
   //sets initial time, t_previous
   t_previous = millis();
+
 
   
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
@@ -464,7 +478,7 @@ float read_altitude(){//reads and returns barometer altitude reading
   do {
     read_barometer(); 
     altitudeReading = bmp.readAltitude(init_pressure);
-  } while (altitudeReading - x_current > 1200*(t_current - t_previous)); 
+  } while (abs(altitudeReading - x_current) > 1200*(t_current - t_previous)); 
   //keeps reading altimiter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
   return altitudeReading; // returns current altitude reading
 }
