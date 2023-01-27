@@ -280,7 +280,7 @@ while(!detect_apogee()){
 
   t_apogee = t_current; //saves apogee time
   if (logFile) {
-    logFile.print(F("APOGEE DETECTED ")); //logs event
+    logFile.print(F("APOGEE DETECTED\t")); //logs event
     reopen_file();//saves and reopens file
   }
 
@@ -293,7 +293,7 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
 }
 
   if (logFile) {
-    logFile.print(F("MACH DELAY REACHED")); //logs event
+    logFile.print(F("MACH DELAY REACHED\t")); //logs event
     reopen_file();//saves and reopens file
   }
 
@@ -311,7 +311,7 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
   t_drogue = t_current; //saves drogue fire time
 
   if (logFile) {
-  logFile.print(F("FIRE DROGUE")); //logs event
+  logFile.print(F("FIRE DROGUE\t")); //logs event
   reopen_file();//saves and reopens file
   }
   
