@@ -51,8 +51,9 @@ READ ME
   SEALEVELPRESSURE_HPA=1016.0
   hz=10
   TAKEOFF_ALTITUDE=30
-  MAIN_CHUTE_ALTITUDE=150;
+  MAIN_CHUTE_ALTITUDE=150
   DROGUE_DELAY=0
+  MACH_DELAY=0
   "
   
 
@@ -70,8 +71,8 @@ READ ME
   TROUBLESHOOTING:
   -SD Card error:       LED blinks and Buzzer beeps fast 
   -FILE error:          LED and Buzzer stay on
-  -Accelerometer error: LED stays on, NO BUZZER
   -Barometer error:     Buzzer stays on, NO LED
+  -Moving on Startup:   Bilnks and Buzzer beeps once
 
 ................................................................................................................................................
 
@@ -100,6 +101,7 @@ READ ME
   
   unsigned long t_previous = 0; //previous clock time in milliseconds
   unsigned long t_current = 0; //current clock time in milliseconds
+  unsigned long t_apogee = 0; //time apogee is detected
   unsigned long t_drogue = 0; //time the drogue deploys
   unsigned long t_main = 0; //time the main deploys
 
@@ -123,7 +125,7 @@ READ ME
   Adafruit_BMP3XX bmp;
 
   // File for config
-  File configFile;
+  //File configFile;
   
   // File for logging
   File logFile;
@@ -169,7 +171,6 @@ void setup() {
 
 
   //Read config.txt File***************************************************
-  
 
   SEALEVELPRESSURE_HPA = SD_findFloat(F("SEALEVELPRESSURE_HPA")); //sea level pressure reading in HPA
   hz = SD_findInt(F("hz")); //frequncy that the altitude reading refreshes
@@ -177,23 +178,6 @@ void setup() {
   MAIN_CHUTE_ALTITUDE = SD_findInt(F("MAIN_CHUTE_ALTITUDE")); //altitude above the ground in meters that the main chute will deploy
   DROGUE_DELAY = SD_findInt(F("DROGUE_DELAY")); //drogue delay time after apogee in milliseconds
   MACH_DELAY = SD_findInt(F("MACH_DELAY")); //delay time in milliseconds that the charges won't fire after launch is detected.
-
-
-  //Read back configured values
-  Serial.print(F("SEALEVELPRESSURE_HPA = "));
-  Serial.println(SEALEVELPRESSURE_HPA);
-
-  Serial.print(F("hz = "));
-  Serial.println(hz);
-
-  Serial.print(F("TAKEOFF_ALTITUDE = "));
-  Serial.println(TAKEOFF_ALTITUDE);
-
-  Serial.print(F("MAIN_CHUTE_ALTITUDE = "));
-  Serial.println(MAIN_CHUTE_ALTITUDE);
-
-  Serial.print(F("DROGUE_DELAY = "));
-  Serial.println(DROGUE_DELAY); 
 
 
   //Logging File Setup***************************************************
@@ -229,23 +213,24 @@ void setup() {
 for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude to zero
   read_barometer();//updates barometer data
   delay(50);
-  init_pressure = bmp.pressure/100;
+  init_pressure = bmp.pressure/100; //used to call read altitude for ground level reference
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x_previous = read_altitude();
+  x_previous = bmp.readAltitude(init_pressure);
 }
-
+  
   delay(1000);
-  x_current = read_altitude();
+  x_current = bmp.readAltitude(init_pressure);
 
   if (abs(x_current - x_previous) > 3 ){//enters if roket is moving greater than 3 m/s
     logFile.print(F("ABORTED, ROCKET MOVING"));
+    beep_buzz(1); //beeps and lights once to signal that rocket was detected moving
     while (1){//runs forever
       //update altitude at frequency (hz)
       iterate_altitude();
-  
       log_data();//logs data to sd card
     }
   }
+
   
   //print initial sea level altitude to file
   logFile.print(init_altitude);
@@ -253,7 +238,6 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
 
   //sets initial time, t_previous
   t_previous = millis();
-
 
   
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
@@ -283,48 +267,51 @@ while(!detect_take_off()){
 
   MACH_DELAY = MACH_DELAY + t_current;
 
+
 // ***********************ASCENDING MODE************************************
-
-while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
-  
-  //update altitude at frequency (hz)
-  iterate_altitude();
-  
-  log_data();//logs data to sd card
-
-}
-
 
 while(!detect_apogee()){
   
   //update altitude at frequency (hz)
   iterate_altitude();
+  log_data();//logs data to sd card
+}
+
+  t_apogee = t_current; //saves apogee time
+  if (logFile) {
+    logFile.print(F("APOGEE DETECTED ")); //logs event
+  }
+
+while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
   
+  //update altitude at frequency (hz)
+  iterate_altitude();
   log_data();//logs data to sd card
 
 }
 
+  if (logFile) {
+    logFile.print(F("MACH DELAY REACHED")); //logs event
+  }
   reopen_file();//saves and reopens file
 
   
 
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
-  t_drogue = t_current; //saves drogue fire time
-  if (logFile) {
-  logFile.print(F("APOGEE DETECTED")); //logs event
-  }
 
-  while(t_current - t_drogue < DROGUE_DELAY){//logs date during drogue delay
+  while(t_current - t_apogee < DROGUE_DELAY){//logs date during drogue delay
     //update altitude at frequency (hz)
     iterate_altitude();
     log_data();//logs data to sd card
-
   }
+  
+  t_drogue = t_current; //saves drogue fire time
 
   if (logFile) {
   logFile.print(F("FIRE DROGUE")); //logs event
   }
+  
   
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
@@ -539,7 +526,7 @@ float SD_findFloat(const __FlashStringHelper * key) {
 }
 
 int SD_findKey(const __FlashStringHelper * key, char * value) {
-  configFile = SD.open("config.txt", FILE_WRITE);
+  File configFile = SD.open("config.txt");
 
   if (!configFile) {
     // if the file didn't open, turn on buzzer/LED to indicate file problem
