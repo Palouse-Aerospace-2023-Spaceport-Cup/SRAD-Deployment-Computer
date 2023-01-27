@@ -281,6 +281,7 @@ while(!detect_apogee()){
   t_apogee = t_current; //saves apogee time
   if (logFile) {
     logFile.print(F("APOGEE DETECTED ")); //logs event
+    reopen_file();//saves and reopens file
   }
 
 while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
@@ -293,8 +294,8 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
 
   if (logFile) {
     logFile.print(F("MACH DELAY REACHED")); //logs event
+    reopen_file();//saves and reopens file
   }
-  reopen_file();//saves and reopens file
 
   
 
@@ -311,8 +312,8 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
 
   if (logFile) {
   logFile.print(F("FIRE DROGUE")); //logs event
+  reopen_file();//saves and reopens file
   }
-  
   
   digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
@@ -335,12 +336,9 @@ while(!detect_main()){// logs data for one second
   
   //update altitude at frequency (hz)
   iterate_altitude();
-  
   log_data();//logs data to sd card
 
 }
-
-  reopen_file();//saves and reopens file
 
 
   
@@ -350,6 +348,7 @@ while(!detect_main()){// logs data for one second
   t_main = t_current; //saves main chute fire time
   if (logFile) {
   logFile.print(F("FIRE MAIN")); //logs event
+  reopen_file();//saves and reopens file
   }
   
   digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on main relay (IGN 2)
