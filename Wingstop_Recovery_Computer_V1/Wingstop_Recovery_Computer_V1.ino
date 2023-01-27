@@ -37,7 +37,7 @@ READ ME
                   Use a delay of this is the backup flight computer. 
 
   MACH_DELAY -  delay time in milliseconds that the charges won't fire after launch is detected. Set this time to at least 
-                the expected burn time of the motor is your are planning on going mach 0.8 or greater. Otherwise set to 0 
+                the expected burn time of the motor if your are planning on going mach 0.8 or greater. Otherwise set to 0 
                 for no delay (for subsonic flight).
 
 
@@ -191,7 +191,6 @@ void setup() {
     while(1){ //run while loop forever
     }
   }
-  set_header_file(); //sets headers at beginning of file
 
 
 // Barometer setup********************************************************
@@ -218,6 +217,8 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   x_previous = bmp.readAltitude(init_pressure);
 }
   
+  set_header_file(); //sets headers at beginning of file
+  
   delay(1000);
   x_current = bmp.readAltitude(init_pressure);
 
@@ -232,8 +233,6 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   }
 
   
-  //print initial sea level altitude to file
-  logFile.print(init_altitude);
 
 
   //sets initial time, t_previous
@@ -488,10 +487,27 @@ void open_file(){// opens the file for writing
 }
 
 void set_header_file(){//sets headers at begining of file
-  logFile.print(F("Flight Log:\t"));
-  logFile.print(hz);
-  logFile.println(F("hz"));
-  logFile.print(F("Time:\tAlt:\tEvents:\tInital Altitude:\t"));
+  logFile.print(F("Flight Log:\t\t"));
+  logFile.print(F("SEALEVELPRESSURE:\t"));
+  logFile.print(SEALEVELPRESSURE_HPA); logFile.print(F(" [HPA]\t")); 
+  logFile.print(F("hz:\t"));
+  logFile.print(hz); logFile.print(F(" [hz]\t")); 
+  logFile.print(F("Initial Altitude:\t"));
+  logFile.print(init_altitude); logFile.print(F(" [m]\t")); 
+  logFile.print(F("TAKEOFF_ALTITUDE:\t"));
+  logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.print(F("MAIN_CHUTE_ALTITUDE:\t"));
+  logFile.print(MAIN_CHUTE_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.print(F("DROGUE_DELAY:\t"));
+  logFile.print(DROGUE_DELAY); logFile.print(F(" [millis]\t")); 
+  logFile.print(F("MACH_DELAY:\t"));
+  logFile.print(MACH_DELAY); logFile.println(F(" [millis]\t")); 
+  
+  logFile.print(F("Time:\tAltitude:\tEvents:\t"));
+
+
+
+  
 }
 
 void close_file(){
