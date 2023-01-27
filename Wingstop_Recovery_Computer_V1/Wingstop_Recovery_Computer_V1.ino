@@ -229,6 +229,8 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
       //update altitude at frequency (hz)
       iterate_altitude();
       log_data();//logs data to sd card
+      reopen_file();//saves and reopens file
+      
     }
   }
 
