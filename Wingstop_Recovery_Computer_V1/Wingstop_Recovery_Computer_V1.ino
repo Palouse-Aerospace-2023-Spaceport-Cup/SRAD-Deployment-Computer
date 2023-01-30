@@ -95,7 +95,6 @@ READ ME
 
   float x_current = 0; //current vertical position above ground in meters
   float x_previous = 0; //previous vertical position above ground in meters
-  float apogee = 0; //vertical apogee position in meters above ground
   float init_pressure = 0; //initial pressure value
   float init_altitude = 0; //initial altitude value in meters
   
@@ -649,8 +648,7 @@ int detect_take_off(){//returns 1 if take off is detected, otherwise 0
 }
 
 bool detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if (x_current > apogee){//enters if current position is higher than saved apogee value
-    apogee = x_current; //saves new apogee value
+  if (x_current > x_previous){//enters if current position is higher than saved apogee value
     counter_apogee = 0;      //resets apogee counter
   } else {
     counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
