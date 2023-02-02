@@ -464,7 +464,7 @@ float read_altitude(){//reads and returns barometer altitude reading
   do {
     read_barometer(); 
     altitudeReading = bmp.readAltitude(init_pressure);
-  } while (abs(altitudeReading - x_current) > 1200*(t_current - t_previous)); 
+  } while (abs(altitudeReading - x_current)/(t_current - t_previous) > 1200); 
   //keeps reading altimiter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
   return altitudeReading; // returns current altitude reading
 }
