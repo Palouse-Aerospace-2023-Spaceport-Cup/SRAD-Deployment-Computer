@@ -34,7 +34,7 @@ READ ME
   MAIN_CHUTE_ALTITUDE - altitude above the ground in meters that the main chute will deploy after apogee is reached. 
   
   DROGUE_DELAY -  drogue delay time after apogee in milliseconds. Use 0 if this is the main flight recovery computer. 
-                  Use a delay of this is the backup flight computer. 
+                  Use a delay if this is the backup flight computer. 
 
   MACH_DELAY -  delay time in milliseconds that the charges won't fire after launch is detected. Set this time to at least 
                 the expected burn time of the motor if your are planning on going mach 0.8 or greater. Otherwise set to 0 
@@ -123,10 +123,6 @@ READ ME
   // barometer attachment
   Adafruit_BMP3XX bmp;
 
-  // File for config
-  //File configFile;
-  
-  // File for logging
   File logFile;
 
 
@@ -221,8 +217,12 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   delay(1000);
   x_current = bmp.readAltitude(init_pressure);
 
-  if (abs(x_current - x_previous) > 3 ){//enters if roket is moving greater than 3 m/s
-    logFile.print(F("ABORTED, ROCKET MOVING"));
+  if (abs(x_current - x_previous) > 3 ){//enters if rocket is moving greater than 3 m/s
+    if (logFile) {
+      logFile.print(F("ABORTED, ROCKET MOVING")); //logs event
+      reopen_file();//saves and reopens file
+    }
+    
     beep_buzz(1); //beeps and lights once to signal that rocket was detected moving
     while (1){//runs forever
       //update altitude at frequency (hz)
@@ -233,18 +233,14 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
     }
   }
 
-  
-
 
   //sets initial time, t_previous
   t_previous = millis();
 
   
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
-
-  //COMPUTER IS NOW ARMED
+  
 }
-
 
 
 
@@ -278,6 +274,7 @@ while(!detect_apogee()){
 }
 
   t_apogee = t_current; //saves apogee time
+
   if (logFile) {
     logFile.print(F("APOGEE DETECTED\t")); //logs event
     reopen_file();//saves and reopens file
@@ -345,6 +342,7 @@ while(!detect_main()){// logs data for one second
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
   t_main = t_current; //saves main chute fire time
+
   if (logFile) {
   logFile.print(F("FIRE MAIN")); //logs event
   reopen_file();//saves and reopens file
@@ -378,11 +376,11 @@ while(!detect_landing()){// logs data for one second
   log_data();//logs data to sd card
 
 }
+
   if (logFile) {
   logFile.print(F("LANDED")); //logs event
   close_file();
   }
-
 
 
 
@@ -465,7 +463,7 @@ float read_altitude(){//reads and returns barometer altitude reading
     read_barometer(); 
     altitudeReading = bmp.readAltitude(init_pressure);
   } while (abs(altitudeReading - x_current)/(t_current - t_previous) > 1200); 
-  //keeps reading altimiter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
+  //keeps reading altimeter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
   return altitudeReading; // returns current altitude reading
 }
 
@@ -523,7 +521,7 @@ void reopen_file(){//closes then reopens the file, saving data up to this point
 
 void log_data(){//saves current data to sd card
   if (logFile) {
-  logFile.print("\n");
+  logFile.print(F("\n"));
   logFile.print(t_current); logFile.print(F("\t"));       //logs current time
   logFile.print(x_current); logFile.print(F("\t"));       //logs current position
   }
@@ -563,15 +561,17 @@ int SD_findKey(const __FlashStringHelper * key, char * value) {
   byte ch;
   do {
     ch = pgm_read_byte(keyPoiter++);
-    if (ch != 0)
+    if (ch != 0){
       key_string[key_length++] = ch;
+    }
   } while (ch != 0);
 
   // check line by line
   while (configFile.available()) {
     int buffer_length = configFile.readBytesUntil('\n', SD_buffer, 100);
-    if (SD_buffer[buffer_length - 1] == '\r')
+    if (SD_buffer[buffer_length - 1] == '\r'){
       buffer_length--; // trim the \r
+    }
 
     if (buffer_length > (key_length + 1)) { // 1 is = character
       if (memcmp(SD_buffer, key_string, key_length) == 0) { // equal
@@ -594,11 +594,13 @@ int HELPER_ascii2Int(char *ascii, int length) {
 
   for (int i = 0; i < length; i++) {
     char c = *(ascii + i);
-    if (i == 0 && c == '-')
+    if (i == 0 && c == '-'){
       sign = -1;
+    }
     else {
-      if (c >= '0' && c <= '9')
+      if (c >= '0' && c <= '9'){
         number = number * 10 + (c - '0');
+      }
     }
   }
 
@@ -613,14 +615,17 @@ float HELPER_ascii2Float(char *ascii, int length) {
 
   for (int i = 0; i < length; i++) {
     char c = *(ascii + i);
-    if (i == 0 && c == '-')
+    if (i == 0 && c == '-'){
       sign = -1;
+    }
     else {
-      if (c == '.')
+      if (c == '.'){
         decimalPlace = 1;
+      }
       else if (c >= '0' && c <= '9') {
-        if (!decimalPlace)
+        if (!decimalPlace){
           number = number * 10 + (c - '0');
+        }
         else {
           decimal += ((float)(c - '0') / pow(10.0, decimalPlace));
           decimalPlace++;
@@ -639,7 +644,7 @@ float HELPER_ascii2Float(char *ascii, int length) {
 
 
 
-int detect_take_off(){//returns 1 if take off is detected, otherwise 0
+bool detect_take_off(){//returns 1 if take off is detected, otherwise 0
   if (x_current >= TAKEOFF_ALTITUDE){
     return 1;
   } else {
