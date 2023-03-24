@@ -237,7 +237,6 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   //sets initial time, t_previous
   t_previous = millis();
 
-  
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
   
 }
@@ -266,19 +265,6 @@ while(!detect_take_off()){
 
 // ***********************ASCENDING MODE************************************
 
-while(!detect_apogee()){
-  
-  //update altitude at frequency (hz)
-  iterate_altitude();
-  log_data();//logs data to sd card
-}
-
-  t_apogee = t_current; //saves apogee time
-
-  if (logFile) {
-    logFile.print(F("APOGEE DETECTED\t")); //logs event
-    reopen_file();//saves and reopens file
-  }
 
 while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
   
@@ -294,6 +280,23 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
   }
 
   
+while(!detect_apogee()){
+  
+  //update altitude at frequency (hz)
+  iterate_altitude();
+  log_data();//logs data to sd card
+}
+
+  t_apogee = t_current; //saves apogee time
+
+  if (logFile) {
+    logFile.print(F("APOGEE DETECTED\t")); //logs event
+    reopen_file();//saves and reopens file
+  }
+
+
+
+  
 
 // ***********************FIRE 1 (DROGUE CHUTE)************************************
 
@@ -306,12 +309,13 @@ while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
   
   t_drogue = t_current; //saves drogue fire time
 
+  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
+  
   if (logFile) {
   logFile.print(F("FIRE DROGUE\t")); //logs event
   reopen_file();//saves and reopens file
   }
   
-  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
   
   while(t_current < t_drogue + 1000){// logs data for one second while pin remains high
     //update altitude at frequency (hz)
