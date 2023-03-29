@@ -110,7 +110,7 @@ READ ME
   int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
   int MAIN_CHUTE_ALTITUDE = 150; //altitude above the ground in meters that the main chute will deploy
   int DROGUE_DELAY = 0; //drogue delay time after apogee in milliseconds
-  int MACH_DELAY = 0; //delay time in milliseconds that the charges won't fire after launch is detected.
+  unsigned long MACH_DELAY = 0; //delay time in milliseconds that the charges won't fire after launch is detected.
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -255,9 +255,9 @@ while(!detect_take_off()){
   
   //update altitude at frequency (hz)
   iterate_altitude();
-  
-}
 
+}
+  
   log_data();//logs data to sd card
 
   MACH_DELAY = MACH_DELAY + t_current;
