@@ -147,6 +147,9 @@ void setup() {
 
   //BUZZER setup:
   pinMode(BUZZER_PIN, OUTPUT);
+
+  //Battery Voltage:
+  pinMode(A3, INPUT);
   
 
   
@@ -233,11 +236,33 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
     }
   }
 
+  //beep 1.5 seconds to signal waiting for ignition battery to turn on
+  turn_on_buzzer();
+  delay(1500);
+  turn_off_buzzer();
+
+  //waits for at  least 6V from ignition battery
+  while(analogRead(A3) < 680){
+    delay(500);
+  }
 
   //sets initial time, t_previous
   t_previous = millis();
 
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
+
+
+
+  delay(5000);
+  digitalWrite(MAIN_FIRE_PIN, HIGH);
+  delay(5000);
+  digitalWrite(MAIN_FIRE_PIN, LOW);
+  delay(5000);
+
+  digitalWrite(DROGUE_FIRE_PIN, HIGH);
+  delay(5000);
+  digitalWrite(DROGUE_FIRE_PIN, LOW);
+  delay(5000);
   
 }
 
