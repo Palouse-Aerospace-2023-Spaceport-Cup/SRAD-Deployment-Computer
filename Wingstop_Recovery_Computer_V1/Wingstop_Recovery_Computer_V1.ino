@@ -1,45 +1,78 @@
 
 /***************************************************************************
-  This program is for Bone-In: Honey BBQ flight computer, Created by Zachary Ervin
-
-
+  
 ................................................................................................................................................
 READ ME
 ................................................................................................................................................
 
+  INFO:
+  Author: Zachary Ervin
+  Date: 3/20/22
+  Hardware: 'Boneless: Hot Buffalo' flight computer, created by Zachary Ervin
+
+  DESCRIPTION:
+  This program is a recovery flight computer for high powered rockets. It is designed to deploy two black-powder charges, 
+  one for a drogue parachute and another for the main recovery parachute. The first charge, the drogue charge, will fire
+  at apogee or a specified delay after apogee. The second charge, the main charge, will fire at the configured altitude 
+  above the ground no less than one second after the drogue charge has fired. The flight computer should be powered on
+  before the circuit is completed to the E-matches used to ignite the powder charges. Once the computer has reached the 
+  armed state the circuits can be completed. Once armed, the computer will wait until the rocket has risen above the 
+  ground a certain configured distance to advance the flight program. 
+
+
   SETUP:
+
+  adjustable parameters:
   
-  Set Current Location and Time Sea Level Pressure:
-    Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
-    Save under variables, Defined Constant "SEALEVELPRESSURE_HPA" 
+  SEALEVELPRESSURE_HPA  - current location and time sea level pressure in HPA. 
+                          Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
   
-  Sea Level vs ground reference setup:
-    under barometer setup code, uncomment section 1 and comment section 2 for ground reference data. Uncomment section 2 and comment section 1 for ground reference data. 
+  hz - frequncy that the altitude reading refreshes. 10 is a good default. 
+  
+  TAKEOFF_ALTITUDE - altitude above the ground in meters that initiates the flight sequence. 30 is a good default. 
+  
+  MAIN_CHUTE_ALTITUDE - altitude above the ground in meters that the main chute will deploy after apogee is reached. 
+  
+  DROGUE_DELAY -  drogue delay time after apogee in milliseconds. Use 0 if this is the main flight recovery computer. 
+                  Use a delay if this is the backup flight computer. 
 
-  Takeoff altitude setup:
-    under variables, adjust take off altitude in meters. Reaching this altitude initiates the flight program.
-    
-  Main chute altitude deployment setup:
-    under variables, adjust main chute deployment altitude in meters. Falling below this altitude deploys the main chute.
+  MACH_DELAY -  delay time in milliseconds that the charges won't fire after launch is detected. Set this time to at least 
+                the expected burn time of the motor if your are planning on going mach 0.8 or greater. Otherwise set to 0 
+                for no delay (for subsonic flight).
 
 
+  Configure the adjustable parameters through a configuration file on the attached SD card wiith the file name "config.txt". 
+  This file must present to operate the flight computer.
+
+  The configure file should contain a line for each parameter, organized as "<parameterName>=<value>".
+
+  example config.txt content:
+  "
+  SEALEVELPRESSURE_HPA=1016.0
+  hz=10
+  TAKEOFF_ALTITUDE=30
+  MAIN_CHUTE_ALTITUDE=150
+  DROGUE_DELAY=0
+  MACH_DELAY=0
+  "
+  
 
   MODE INDICATORS:
 
   
   ARMED AND READY TO LAUNCH
-  -BEEPS 3 TIMES
+  -Beeps 3 times
 
   RECOVERY MODE
-  -Slow long Beeps
+  -Slow long beeps
   
 
   
   TROUBLESHOOTING:
   -SD Card error:       LED blinks and Buzzer beeps fast 
   -FILE error:          LED and Buzzer stay on
-  -Accelerometer error: LED stays on, NO BUZZER
   -Barometer error:     Buzzer stays on, NO LED
+  -Moving on Startup:   Bilnks and Buzzer beeps once
 
 ................................................................................................................................................
 
@@ -47,53 +80,50 @@ READ ME
  ***************************************************************************/
 
 
- 
 //LIBRARIES
 
-#include <Wire.h>
-#include "Adafruit_BMP3XX.h"
-//#include <Adafruit_MPU6050.h>
-
-#include <SD.h>
+#include <Wire.h> //version 1.0
+#include "Adafruit_BMP3XX.h" //version 2.1.0
+#include <SD.h> //version 1.2.4
 
 
 
 //VARIABLES
 
-  int c = 0; //COUNTER
-  float x1 = 0, x2 = 0, landing = 0, apo = 0, apo_act = 0, init_pressure = 0, init_altitude = 0, delta_t = 0; //DATA VARIABLES (decimal)
-  unsigned long t1 = 0, t2 = 0, t_droge = 0, t_main = 0; //TIMER VARIABLES (integers)
+  int counter_apogee = 0; //counter for apogee detection buffer
+  int counter_landed = 0; //counter for landing detection buffer
 
+  float x_current = 0; //current vertical position above ground in meters
+  float x_previous = 0; //previous vertical position above ground in meters
+  float init_pressure = 0; //initial pressure value
+  float init_altitude = 0; //initial altitude value in meters
+  
+  unsigned long t_previous = 0; //previous clock time in milliseconds
+  unsigned long t_current = 0; //current clock time in milliseconds
+  unsigned long t_apogee = 0; //time apogee is detected
+  unsigned long t_drogue = 0; //time the drogue deploys
+  unsigned long t_main = 0; //time the main deploys
+
+  //variables to be defined from config.txt file from SD card:
+  float SEALEVELPRESSURE_HPA = 1016.00; //sea level pressure reading in HPA
+  int hz = 10; //frequncy that the altitude reading refreshes
+  int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
+  int MAIN_CHUTE_ALTITUDE = 150; //altitude above the ground in meters that the main chute will deploy
+  int DROGUE_DELAY = 0; //drogue delay time after apogee in milliseconds
+  unsigned long MACH_DELAY = 0; //delay time in milliseconds that the charges won't fire after launch is detected.
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
   #define LED_PIN  5
 
   //FIRE PINS
-  #define FIRE_PIN_1  2
-  #define FIRE_PIN_2  3
+  #define DROGUE_FIRE_PIN  2
+  #define MAIN_FIRE_PIN  3
 
+  // barometer attachment
+  Adafruit_BMP3XX bmp;
 
-// *********SET SEA LEVEL PRESSURE HERE***************
-  #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
-  
-// *********SET FREQUENCY HERE IN HZ***************
-  #define hz (10)//hz
-
-// *********SET TAKEOFF ALTITUDE HERE IN METERS***************
-  #define TAKEOFF_ALTITUDE 30
-
-// *********SET MAIN CHUTE ALTITUDE HERE IN METERS***************
-  #define MAIN_CHUTE_ALTITUDE 150
-  
-
-
-
-// barometer attachment
-Adafruit_BMP3XX bmp;
-
-// File for logging
-File myFile;
+  File logFile;
 
 
 
@@ -107,17 +137,19 @@ void setup() {
   while (!Serial);
 
   //Fire pin setup
-  pinMode(FIRE_PIN_1, OUTPUT);
-  digitalWrite(FIRE_PIN_1, LOW);
-  pinMode(FIRE_PIN_2, OUTPUT);
-  digitalWrite(FIRE_PIN_2, LOW);
+  pinMode(DROGUE_FIRE_PIN, OUTPUT);
+  digitalWrite(DROGUE_FIRE_PIN, LOW);
+  pinMode(MAIN_FIRE_PIN, OUTPUT);
+  digitalWrite(MAIN_FIRE_PIN, LOW);
 
   //Light setup
   pinMode(LED_PIN, OUTPUT);
 
   //BUZZER setup:
   pinMode(BUZZER_PIN, OUTPUT);
-  //beep_buzz(1);//beep and buzz 
+
+  //Battery Voltage:
+  pinMode(A3, INPUT);
   
 
   
@@ -136,10 +168,27 @@ void setup() {
   }
 
 
-  //FILE Setup***************************************************
+  //Read config.txt File***************************************************
+
+  SEALEVELPRESSURE_HPA = SD_findFloat(F("SEALEVELPRESSURE_HPA")); //sea level pressure reading in HPA
+  hz = SD_findInt(F("hz")); //frequncy that the altitude reading refreshes
+  TAKEOFF_ALTITUDE = SD_findInt(F("TAKEOFF_ALTITUDE")); //altitude above the ground in meters that triggers the detect_take_off function
+  MAIN_CHUTE_ALTITUDE = SD_findInt(F("MAIN_CHUTE_ALTITUDE")); //altitude above the ground in meters that the main chute will deploy
+  DROGUE_DELAY = SD_findInt(F("DROGUE_DELAY")); //drogue delay time after apogee in milliseconds
+  MACH_DELAY = SD_findInt(F("MACH_DELAY")); //delay time in milliseconds that the charges won't fire after launch is detected.
+
+
+  //Logging File Setup***************************************************
 
   open_file(); //File for writing
-  set_header_file(); //sets headers at beginning of file
+  if (logFile) {
+    } else {
+    // if the file didn't open, turn on buzzer/LED to indicate file problem
+    turn_on_led(); //Turn on LED
+    turn_on_buzzer(); //Turn on buzzer
+    while(1){ //run while loop forever
+    }
+  }
 
 
 // Barometer setup********************************************************
@@ -158,48 +207,51 @@ void setup() {
 
 
 
-for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude to zero
+for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude to zero
   read_barometer();//updates barometer data
   delay(50);
-
-  //calibrate readings for altitude measurements. CHOOSE SEALEVEL OR GROUND REFERENCE ALTITUDE READINGS. One section must be commented.
-
-  ///* SECTION 1
-  // COMMENT this section to use all sea level data, not ground reference data. Must uncomment second section. 
-  init_pressure = bmp.pressure/100;
+  init_pressure = bmp.pressure/100; //used to call read altitude for ground level reference
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x1 = read_altitude();
-  //*///END SECTION 1 
+  x_previous = bmp.readAltitude(init_pressure);
 }
-  /* SECTION 2
-  // UNCOMMENT this section to use all sea level data. Target altitude will be updated using initial altitude reading and target above ground. Must comment first section. 
-  init_pressure = SEALEVELPRESSURE_HPA;
-  init_altitude = read_altitude();
-  x1 = init_altitude;
-  target_altitude += init_altitude;
-  *///END SECTION 2 
-
   
-
-
-  //print initial sea level altitude to file
-  myFile.print(init_altitude);
-
+  set_header_file(); //sets headers at beginning of file
   
+  delay(1000);
+  x_current = bmp.readAltitude(init_pressure);
 
-  //sets initial time, t1
-  t1 = millis();
+  if (abs(x_current - x_previous) > 3 ){//enters if rocket is moving greater than 3 m/s
+    if (logFile) {
+      logFile.print(F("ABORTED, ROCKET MOVING")); //logs event
+      reopen_file();//saves and reopens file
+    }
+    
+    beep_buzz(1); //beeps and lights once to signal that rocket was detected moving
+    while (1){//runs forever
+      //update altitude at frequency (hz)
+      iterate_altitude();
+      log_data();//logs data to sd card
+      reopen_file();//saves and reopens file
+      
+    }
+  }
 
+  //beep 1.5 seconds to signal waiting for ignition battery to turn on
+  turn_on_buzzer();
+  delay(1500);
+  turn_off_buzzer();
 
+  //waits for at  least 6V from ignition battery
+  while(analogRead(A3) < 680){
+    delay(500);
+  }
+
+  //sets initial time, t_previous
+  t_previous = millis();
+
+  beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
   
-  beep_buzz(3);//beep and buzz 
-
-
-  
-
-  //COMPUTER IS NOW ARMED
 }
-
 
 
 
@@ -215,42 +267,76 @@ while(!detect_take_off()){
   
   //update altitude at frequency (hz)
   iterate_altitude();
-  
-}
 
+}
+  
   log_data();//logs data to sd card
 
+  MACH_DELAY = MACH_DELAY + t_current;
 
 
 // ***********************ASCENDING MODE************************************
 
+
+while(MACH_DELAY > t_current){ //runs until MACH_DELAY is reached
+  
+  //update altitude at frequency (hz)
+  iterate_altitude();
+  log_data();//logs data to sd card
+
+}
+
+  if (logFile) {
+    logFile.print(F("MACH DELAY REACHED\t")); //logs event
+    reopen_file();//saves and reopens file
+  }
+
+  
 while(!detect_apogee()){
   
   //update altitude at frequency (hz)
   iterate_altitude();
-  
   log_data();//logs data to sd card
-
 }
 
+  t_apogee = t_current; //saves apogee time
+
+  if (logFile) {
+    logFile.print(F("APOGEE DETECTED\t")); //logs event
+    reopen_file();//saves and reopens file
+  }
+
+
+
+  
+
+// ***********************FIRE 1 (DROGUE CHUTE)************************************
+
+
+  while(t_current - t_apogee < DROGUE_DELAY){//logs date during drogue delay
+    //update altitude at frequency (hz)
+    iterate_altitude();
+    log_data();//logs data to sd card
+  }
+  
+  t_drogue = t_current; //saves drogue fire time
+
+  digitalWrite(DROGUE_FIRE_PIN, HIGH); //turns on drogue relay (IGN 1)
+  
+  if (logFile) {
+  logFile.print(F("FIRE DROGUE\t")); //logs event
   reopen_file();//saves and reopens file
-
-// ***********************FIRE 1 (DROGE CHUTE)************************************
-
-  t_droge = t2; //saves droge fire time
-  myFile.print(F("FIRE DROGE")); //logs event
-  digitalWrite(FIRE_PIN_1, HIGH); //turns on droge releay (IGN 1)
+  }
   
-  while(t2 < t_droge + 1000){// logs data for one second
   
-  //update altitude at frequency (hz)
-  iterate_altitude();
-  
-  log_data();//logs data to sd card
+  while(t_current < t_drogue + 1000){// logs data for one second while pin remains high
+    //update altitude at frequency (hz)
+    iterate_altitude();
+    log_data();//logs data to sd card
 
-}
+  }
 
-  digitalWrite(FIRE_PIN_1, LOW); //turns off droge releay (IGN 1)
+  digitalWrite(DROGUE_FIRE_PIN, LOW); //turns off drogue relay (IGN 1)
 
 
 
@@ -258,27 +344,29 @@ while(!detect_apogee()){
 
 // ***********************DESCENDING MODE 1************************************
 
-while(!detect_main()){// logs data for one second
+while(!detect_main()){// logs data for one second 
   
   //update altitude at frequency (hz)
   iterate_altitude();
-  
   log_data();//logs data to sd card
 
 }
-
-  reopen_file();//saves and reopens file
 
 
   
 
 // ***********************FIRE 2 (MAIN CHUTE)************************************
 
-  t_main = t2; //saves droge fire time
-  myFile.print(F("FIRE MAIN")); //logs event
-  digitalWrite(FIRE_PIN_2, HIGH); //turns on droge releay (IGN 1)
+  t_main = t_current; //saves main chute fire time
+
+  if (logFile) {
+  logFile.print(F("FIRE MAIN")); //logs event
+  reopen_file();//saves and reopens file
+  }
   
-  while(t2 < t_main + 1000){// logs data for one second
+  digitalWrite(MAIN_FIRE_PIN, HIGH); //turns on main relay (IGN 2)
+  
+  while(t_current < t_main + 1000){// logs data for one second while pin remains high
   
   //update altitude at frequency (hz)
   iterate_altitude();
@@ -287,7 +375,7 @@ while(!detect_main()){// logs data for one second
 
 }
 
-  digitalWrite(FIRE_PIN_2, LOW); //turns off droge releay (IGN 1)
+  digitalWrite(MAIN_FIRE_PIN, LOW); //turns off main relay (IGN 2)
 
 
 
@@ -305,10 +393,10 @@ while(!detect_landing()){// logs data for one second
 
 }
 
-  myFile.print(F("LANDED")); //logs event
-  
+  if (logFile) {
+  logFile.print(F("LANDED")); //logs event
   close_file();
-
+  }
 
 
 
@@ -316,9 +404,6 @@ while(!detect_landing()){// logs data for one second
 // ***********************RECOVERY MODE************************************
   
   recovery_beeps();
-  
-
-
 
 }//end of main program
 
@@ -389,62 +474,183 @@ void read_barometer(){//takes barometer reading
 }
 
 float read_altitude(){//reads and returns barometer altitude reading
-  while (! bmp.performReading()) {
-    //performs until it gets a valid reading
-  }
-  return bmp.readAltitude(init_pressure); // returns current altitude reading
+  float altitudeReading;
+  do {
+    read_barometer(); 
+    altitudeReading = bmp.readAltitude(init_pressure);
+  } while (abs(altitudeReading - x_current)/(t_current - t_previous) > 1200); 
+  //keeps reading altimeter if speed vertical speed is more than 1200 m/s (should never actually be that fast).
+  return altitudeReading; // returns current altitude reading
 }
 
 void iterate_altitude(){ //reads altitude at frequency (hz)
-  do{
-  t2 = millis();
-  }while(t2 - t1 < 1000/hz);//runs until reaches frequency
+  do {
+  t_current = millis();
+  }while(t_current - t_previous < 1000/hz);//runs until reaches frequency period
 
-  landing = x1; //updates landing variable for detection
-  x1 = read_altitude(); //updates altitude
-  t1 = t2;  //updates new time
+  x_previous = x_current; //updates previous position variable for landing detection
+  x_current = read_altitude(); //updates altitude
+  t_previous = t_current;  //updates new time
 }
 
 
 //***********FILE FUNCTIONS***********
 
 void open_file(){// opens the file for writing
-  myFile = SD.open("flight.txt", FILE_WRITE);
-
-  
-  if (myFile) {
-    //file opened ok
-  } else {
-    // if the file didn't open, turn on buzzer/LED to indicate file problem
-    turn_on_led(); //Turn on LED
-    turn_on_buzzer(); //Turn on buzzer
-    while(1){ 
-      //run while loop forever
-    }
-  }
+  logFile = SD.open("flight.txt", FILE_WRITE);
 }
 
 void set_header_file(){//sets headers at begining of file
-  myFile.print(F("Flight Log:\t"));
-  myFile.print(hz);
-  myFile.println(F("hz"));
-  myFile.print(F("Time:\tAlt:\tApo:\tEvents:\t"));
+  logFile.print(F("Flight Log:\t\t"));
+  logFile.print(F("SEALEVELPRESSURE:\t"));
+  logFile.print(SEALEVELPRESSURE_HPA); logFile.print(F(" [HPA]\t")); 
+  logFile.print(F("hz:\t"));
+  logFile.print(hz); logFile.print(F(" [hz]\t")); 
+  logFile.print(F("Initial Altitude:\t"));
+  logFile.print(init_altitude); logFile.print(F(" [m]\t")); 
+  logFile.print(F("TAKEOFF_ALTITUDE:\t"));
+  logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.print(F("MAIN_CHUTE_ALTITUDE:\t"));
+  logFile.print(MAIN_CHUTE_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.print(F("DROGUE_DELAY:\t"));
+  logFile.print(DROGUE_DELAY); logFile.print(F(" [millis]\t")); 
+  logFile.print(F("MACH_DELAY:\t"));
+  logFile.print(MACH_DELAY); logFile.println(F(" [millis]\t")); 
+  
+  logFile.print(F("Time:\tAltitude:\tEvents:\t"));
+
+
+
+  
 }
 
 void close_file(){
-  myFile.close(); //closes file
+  logFile.close(); //closes file
 }
 
 void reopen_file(){//closes then reopens the file, saving data up to this point
+  if (logFile){
   close_file();//closes the file
+  }
   open_file();//opens the file
 }
 
 void log_data(){//saves current data to sd card
-  myFile.print("\n");
-  myFile.print(t2); myFile.print(F("\t"));       //logs current time
-  myFile.print(x1); myFile.print(F("\t"));       //logs current position
-  
+  if (logFile) {
+  logFile.print(F("\n"));
+  logFile.print(t_current); logFile.print(F("\t"));       //logs current time
+  logFile.print(x_current); logFile.print(F("\t"));       //logs current position
+  }
+}
+
+int SD_findInt(const __FlashStringHelper * key) {
+  char value_string[30];
+  int value_length = SD_findKey(key, value_string);
+  return HELPER_ascii2Int(value_string, value_length);
+}
+
+float SD_findFloat(const __FlashStringHelper * key) {
+  char value_string[30];
+  int value_length = SD_findKey(key, value_string);
+  return HELPER_ascii2Float(value_string, value_length);
+}
+
+int SD_findKey(const __FlashStringHelper * key, char * value) {
+  File configFile = SD.open("config.txt");
+
+  if (!configFile) {
+    // if the file didn't open, turn on buzzer/LED to indicate file problem
+    turn_on_led(); //Turn on LED
+    turn_on_buzzer(); //Turn on buzzer
+    while(1){ //run while loop forever
+    }
+  }
+
+  char key_string[30];
+  char SD_buffer[30 + 30 + 1]; // 1 is = character
+  int key_length = 0;
+  int value_length = 0;
+
+  // Flash string to string
+  PGM_P keyPoiter;
+  keyPoiter = reinterpret_cast<PGM_P>(key);
+  byte ch;
+  do {
+    ch = pgm_read_byte(keyPoiter++);
+    if (ch != 0){
+      key_string[key_length++] = ch;
+    }
+  } while (ch != 0);
+
+  // check line by line
+  while (configFile.available()) {
+    int buffer_length = configFile.readBytesUntil('\n', SD_buffer, 100);
+    if (SD_buffer[buffer_length - 1] == '\r'){
+      buffer_length--; // trim the \r
+    }
+
+    if (buffer_length > (key_length + 1)) { // 1 is = character
+      if (memcmp(SD_buffer, key_string, key_length) == 0) { // equal
+        if (SD_buffer[key_length] == '=') {
+          value_length = buffer_length - key_length - 1;
+          memcpy(value, SD_buffer + key_length + 1, value_length);
+          break;
+        }
+      }
+    }
+  }
+
+  configFile.close();  // close the file
+  return value_length;
+}
+
+int HELPER_ascii2Int(char *ascii, int length) {
+  int sign = 1;
+  int number = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-'){
+      sign = -1;
+    }
+    else {
+      if (c >= '0' && c <= '9'){
+        number = number * 10 + (c - '0');
+      }
+    }
+  }
+
+  return number * sign;
+}
+
+float HELPER_ascii2Float(char *ascii, int length) {
+  int sign = 1;
+  int decimalPlace = 0;
+  float number  = 0;
+  float decimal = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-'){
+      sign = -1;
+    }
+    else {
+      if (c == '.'){
+        decimalPlace = 1;
+      }
+      else if (c >= '0' && c <= '9') {
+        if (!decimalPlace){
+          number = number * 10 + (c - '0');
+        }
+        else {
+          decimal += ((float)(c - '0') / pow(10.0, decimalPlace));
+          decimalPlace++;
+        }
+      }
+    }
+  }
+
+  return (number + decimal) * sign;
 }
 
 
@@ -454,72 +660,45 @@ void log_data(){//saves current data to sd card
 
 
 
-int detect_take_off(){//returns 1 if take off is detected, otherwise 0
-  if(x1 >= TAKEOFF_ALTITUDE){
+bool detect_take_off(){//returns 1 if take off is detected, otherwise 0
+  if (x_current >= TAKEOFF_ALTITUDE){
     return 1;
-  }
-  else{
+  } else {
     return 0;
   }
 }
 
-int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if(x1 > apo_act){//enters if current position is higher than saved apogee value
-    apo_act = x1; //saves new apogee value
-    c = 0;      //resets apogee counter
+bool detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
+  if (x_current > x_previous){//enters if current position is higher than saved apogee value
+    counter_apogee = 0;      //resets apogee counter
+  } else {
+    counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  else{
-    c++;        //increments apogee counter if latest value is less than recorded apogee
-  }
-  if(c > 3){    //enters if last 4 positions are lower than recorded apogee
-    c = 0;      //resets counter for landing
-    return 1;   //returns 1 for apogee detected
-  }
-  else{           
-    return 0;   //returns 0 for apogee not reached
+  if (counter_apogee > 3){    //enters if last 4 positions are lower than recorded apogee
+    return true;   //returns 1 for apogee detected
+  } else {           
+    return false;   //returns 0 for apogee not reached
   }
 }
 
 
-int detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other wise
-  if(x1 <= MAIN_CHUTE_ALTITUDE){
-    return 1;
-  }
-  else{
-    return 0;
-  }
-}
-
-int detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
-  if (x1 - landing < 1 && x1 - landing > -1){ //enters if velocity is almost 0
-    c++;    //increments counter
-  }
-  else{
-    c = 0;  //resets counter
-  }
-  if(c > 5){  //enters if counted 5 velocities in a row close to 0
-    c = 0;    //resets counter
-    return 1; //returns 1 if touchdown detected
-  }
-  else{
-    return 0;  //returns 0 if touchdown not detected
+bool detect_main(){//returns 0 while above MAIN_CHUTE_ALTITUDE altitude, 0 other wise
+  if (x_current <= MAIN_CHUTE_ALTITUDE){
+    return true;
+  } else {
+    return false;
   }
 }
 
-
-
-//***********FIRE PIN FUNCTIONS***********
-
-void fire_1(){  //Fires ignition 1 for 1 second
-  digitalWrite(FIRE_PIN_1, HIGH); 
-  delay(2000);
-  digitalWrite(FIRE_PIN_1, LOW);
-  //digitalWrite(FIRE_PIN_1, LOW);
-}
-
-void fire_2(){  //Fires ignition 1 for 1 second
-  digitalWrite(FIRE_PIN_2, HIGH);
-  delay(2000);
-  digitalWrite(FIRE_PIN_2, LOW);
-  //digitalWrite(FIRE_PIN_2, LOW);
+bool detect_landing(){//returns 1 if touchdown is detected, otherwise returns 0.
+  if (x_current - x_previous < 1 && x_current - x_previous > -1){ //enters if velocity is almost 0
+    counter_landed++;    //increments counter
+  } else {
+    counter_landed = 0;  //resets counter
+  }
+  if (counter_landed > 5){  //enters if counted 5 velocities in a row close to 0
+    return true; //returns 1 if touchdown detected
+  } else {
+    return false;  //returns 0 if touchdown not detected
+  }
 }
