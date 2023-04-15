@@ -250,19 +250,6 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   t_previous = millis();
 
   beep_buzz(3);//beep and buzz 3 times to signal setup sequence is over
-
-
-
-  delay(5000);
-  digitalWrite(MAIN_FIRE_PIN, HIGH);
-  delay(5000);
-  digitalWrite(MAIN_FIRE_PIN, LOW);
-  delay(5000);
-
-  digitalWrite(DROGUE_FIRE_PIN, HIGH);
-  delay(5000);
-  digitalWrite(DROGUE_FIRE_PIN, LOW);
-  delay(5000);
   
 }
 
